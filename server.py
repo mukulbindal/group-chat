@@ -165,5 +165,9 @@ def delete_group(group_id: int, db: Session = Depends(get_db)):
     return run()
 
 
+def send_message():
+    pass
+
+
 if __name__ == '__main__':
     uvicorn.run(app)
