@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import sessionmaker, Session
@@ -102,7 +102,7 @@ def logout(user_id):
 
 
 @app.post('/groups', tags=['Users'], dependencies=[Depends(JWTBearer())])
-def create_group(group: GroupCreate, db: Session = Depends(get_db)):
+def create_group(group: GroupCreate, request: Request, db: Session = Depends(get_db)):
     @error_handler
     def run():
         db_group = Group(name=group.name)
@@ -116,6 +116,7 @@ def create_group(group: GroupCreate, db: Session = Depends(get_db)):
         grp = db.query(GroupMember).filter(
             GroupMember.group_id == db_group.id).all()
         return {'group_name': db_group.name, 'group_id': db_group.id, 'members': grp}
+    print("Logged in as:", request.current_user)
     return run()
 
 
@@ -165,9 +166,60 @@ def delete_group(group_id: int, db: Session = Depends(get_db)):
     return run()
 
 
-def send_message():
-    pass
+@app.post('/send-message', tags=['Users'], dependencies=[Depends(JWTBearer())])
+def send_message(message: SendMessage, request: Request, db: Session = Depends(get_db)):
+    @error_handler
+    def run():
+        content, group_id = message.content, message.grp_id
+        user_id = request.current_user['id']
+        db_msg = Message(content=content, group_id=group_id, sent_by=user_id)
+        db.add(db_msg)
+        db.commit()
+        db.refresh(db_msg)
+        return db_msg
+    return run()
+
+
+@app.post('/get-messages', tags=["Messages"], dependencies=[Depends(JWTBearer())])
+def get_all_message(group_id: int, request: Request, db: Session = Depends(get_db)):
+    @error_handler
+    def run():
+        data = db.query(GroupMember, Message, Group, User).filter(GroupMember.user_id == User.id)\
+            .filter(GroupMember.group_id == group_id)\
+            .filter(Group.id == group_id)\
+            .filter(User.id == Message.sent_by)\
+            .filter(Message.group_id == group_id).all()
+        response = {}
+        for group_member, message, group, user in data:
+            response['groupName'] = group.name
+            response['groupId'] = group.id
+            message_data = {'sent_by': message.sent_by,
+                            'username': user.username,
+                            'message': message.content,
+                            'time': message.timestamp,
+                            'message_id': message.id,
+                            'likes': message.likes}
+            if 'message' in response.keys():
+                response['message'].append(message_data)
+            else:
+                response['message'] = [message_data]
+
+        return response
+
+    return run()
+
+
+@app.post('/like_message', tags=["Messages"], dependencies=[Depends(JWTBearer())])
+def like_message(message_id: int, request: Request, db: Session = Depends(get_db)):
+    @error_handler
+    def run():
+        db_msg = db.query(Message).filter(Message.id == message_id).first()
+        db_msg.likes += 1
+        db.commit()
+        db.refresh(db_msg)
+        return db_msg
+    return run()
 
 
 if __name__ == '__main__':
-    uvicorn.run(app)
+    uvicorn.run("server:app", reload=True)

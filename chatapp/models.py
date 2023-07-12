@@ -1,5 +1,6 @@
 from .database import Base, engine
 from sqlalchemy import Column, String, Integer, Boolean, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from datetime import datetime
 # Database Models
 
@@ -33,7 +34,7 @@ class Message(Base):
     sent_by = Column(Integer, ForeignKey('users.id'))
     content = Column(String)
     likes = Column(Integer, default=0)
-    timestamp = Column(DateTime, default=datetime.now())
+    timestamp = Column(DateTime, default=datetime.now)
 
 
 Base.metadata.create_all(bind=engine)
