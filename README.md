@@ -1,6 +1,5 @@
 # Group Chat
 
-===
 Abstract: This application is a web service for group chat application
 
 ## Installation Instructions
