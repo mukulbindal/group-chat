@@ -8,7 +8,9 @@ import random
 fake = Faker('en_US')
 
 global_user_id_pass = {}
-global_jwt = ""
+global_jwt = []
+global_grp_ids = []
+global_mesg_ids = []
 
 
 @pytest.fixture(scope="session")
@@ -52,7 +54,7 @@ def test_login(client: TestClient):
     response = client.post(
         '/auth/login', json=dict(data))
     print(response.json())
-    global_jwt = response.json()['token']
+    global_jwt.append(response.json()['token'])
     print(global_jwt)
     assert response.status_code == 200
 
@@ -64,29 +66,62 @@ def test_create_group(client: TestClient):
         groupname = "GRP_" + fake.word()
         members = random.sample(member_ids, random.randint(0, len(member_ids)))
         data = GroupCreate(name=groupname, members=members)
-        headers = {"Authorization": f"Bearer {global_jwt}"}
-        print("In test create group", global_jwt)
+        headers = {
+            "Authorization": f"Bearer {random.choice(global_jwt)}"}
         response = client.post(
             '/groups', headers=headers, json=dict(data))
         print(response.json())
+        global_grp_ids.append(response.json()['group_id'])
         assert response.status_code == 200
 
 
 def test_get_group(client: TestClient):
     global global_jwt
     criteria = "all"
-    headers = {"Authorization": f"Bearer {global_jwt}"}
+    headers = {
+        "Authorization": f"Bearer {random.choice(global_jwt)}"}
     response = client.get(f'/groups?criteria={criteria}', headers=headers)
     print(response.json())
     assert response.status_code == 200
 
 
 def test_delete_group(client: TestClient):
-    global global_jwt
-
-    group_id = random.randint(1, 5)
-    headers = {"Authorization": f"Bearer {global_jwt}"}
+    group_id = random.choice(global_grp_ids)
+    headers = {
+        "Authorization": f"Bearer {random.choice(global_jwt)}"}
     response = client.delete(f'/groups/{group_id}', headers=headers)
     print(response.json())
     assert response.status_code == 200
     assert response.json() == {'message': 'Group deleted successfully'}
+
+
+def test_send_message(client: TestClient):
+    for _ in range(10):
+        headers = {
+            "Authorization": f"Bearer {random.choice(global_jwt)}"}
+        message = SendMessage(content=fake.sentence(),
+                              grp_id=str(random.choice(global_grp_ids)))
+        response = client.post(
+            '/send-message', headers=headers, json=dict(message))
+        print(response.json())
+        global_mesg_ids.append(response.json()['id'])
+        assert response.status_code == 200
+
+
+def test_open_group(client: TestClient):
+    headers = {
+        "Authorization": f"Bearer {random.choice(global_jwt)}"}
+    response = client.post(
+        f'/get-messages?group_id={random.choice(global_grp_ids)}', headers=headers)
+    print(response.json())
+    assert response.status_code == 200
+
+
+def test_like_message(client: TestClient):
+    for i in range(10):
+        headers = {
+            "Authorization": f"Bearer {random.choice(global_jwt)}"}
+        response = client.post(
+            f'/like_message?message_id={random.choice(global_mesg_ids)}', headers=headers)
+        print(response.json())
+        assert response.status_code == 200
