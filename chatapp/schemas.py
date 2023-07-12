@@ -44,7 +44,6 @@ class SearchGroup(BaseModel):
 class SendMessage(BaseModel):
     content: str
     grp_id: str
-    user_id: str
 
 
 class LikeMessage(BaseModel):
